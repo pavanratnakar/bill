@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html style="background-color:#00000;" lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Floatbox Video Player</title>
+<script src="floatbox.js"></script>
+
+<style>
+html, body, #container {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	border-width: 0;
+	background-color: #000000;
+}
+p {
+	background-color: #fffacd;
+	width: 60%;
+	text-align: center;
+	margin: 24px auto;
+	padding: 16px;
+}
+</style>
+
+</head>
+<body>
+<div id="container"></div>
+
+<script>
+(function () {
+
+	var params = fb.deserialize(location.search.substring(1)),
+		autoEnd = params.autoend != '0',
+		source = params.source,
+		poster = params.poster || source.replace(/\.mp4$/i, '.jpg'),
+		webm = source.replace(/\.mp4$/i, '.webm'),
+		$container = fb.$('container'),
+		$style = $container.style,
+		$checker = document.createElement('video'),
+		videoAttributes;
+
+	delete params.autoend;
+	delete params.source;
+	delete params.poster;
+	delete params.postMessage;
+	params.bgcolor = params.bgcolor || 'transparent';
+	$style.backgroundColor = params.bgcolor;
+
+	if (webm != source && $checker.canPlayType && ($checker.canPlayType('video/webm') || $checker.canPlayType('video/mp4'))) {
+		if ('ontouchstart' in document) {
+			fb.preload(poster, function (img) {
+				videoAttributes = 'preload="none"' + (img.ok ? ' poster="' + img.src + '"' : '');
+				video();
+			});
+		} else {
+			videoAttributes = 'preload="metadata" onloadedmetadata="this.play()"';
+			video();
+		}
+	}
+	else {
+		flash();
+	}
+
+	function video () {
+		$container.innerHTML =
+			'<video id="fbPlayer" controls width="100%" height="100%" ' + videoAttributes + '>' +
+			'<source id="fbWebm" type="video/webm" src="' + webm + '" />' + // Chrome, Firefox 4.0+, Opera 10.6+
+			'<source id="fbMp4" type="video/mp4" src="' + source + '" />' + // IE 9+, Safari 3.1+, Chrome but problematic on some hardware
+// 			'<source id="ogg" type="video/ogg" src="' + ogg + '" />' + //  Chrome, Firefox 3.5+, Opera 10.5+
+			'</video>';
+		fb.addEvent(['fbPlayer', 'fbWebm', 'fbMp4' ], 'error', flash);
+		if (autoEnd) {
+			fb.addEvent('fbPlayer', 'ended', function () { fb.end(); });
+		}
+	}
+
+	function flash (e) {
+		document.body.style.background = 'url(graphics/black/loader.gif) no-repeat center';
+		$style.width = $style.height = '0';  // hide white/green screen at startup
+		params.config = '{"playerId":"fbPlayer","clip":{"url":"' + source + '"}}';
+		fb.flashObject({
+			source: 'http://releases.flowplayer.org/swf/flowplayer-3.2.16.swf',
+			width: '100%',
+			height: '100%',
+			node: 'container',
+			id: 'fbPlayer',
+			params: params,
+			failure: showContainer,
+			altContent: '<p>' +
+				'Uh-oh. Your browser is unable to play this video.<br />' +
+				'Please right-click <a href="' + source + '">this link</a> ' +
+				'to download the video for offline viewing with a standalone player.' +
+				'</p>'
+		});
+		window.flowplayer = {  // minimal flowplayer object for receiving events
+			fireEvent: function (id, type) {
+				if (type == 'onBegin') {
+					setTimeout(showContainer, 160);
+				}
+				if (autoEnd && type == 'onFinish') {
+					$style.width = $style.height = '0';
+					fb.end();
+				}
+			}
+		};
+	}
+
+	function showContainer () {
+		$style.width = $style.height = '100%';
+	}
+
+})();
+</script>
+
+</body>
+</html>
